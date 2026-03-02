@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: cardshield-db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: cardshield
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d cardshield"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - cardshield-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: cardshield-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cardshield-net
+
+  api:
+    build: .
+    container_name: cardshield-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cardshield-net
+
+networks:
+  cardshield-net:
+    driver: bridge

@@ -1,0 +1,6 @@
+# CardShield Project Rules
+- Always use 'async/await' for database (SQLAlchemy AsyncSession) and Redis (redis-py async).
+- Use SQLModel for shared Pydantic/SQLAlchemy definitions to reduce boilerplate.
+- For "Velocity" features, prioritize Redis Sorted Sets (ZSET) over PostgreSQL queries.
+- Follow a Service-Pattern: Keep API endpoints thin; put scoring logic in `app/services/`.
+- Ensure all PostgreSQL queries use indexed columns (user_id, timestamp).
