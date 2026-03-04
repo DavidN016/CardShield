@@ -38,6 +38,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://user:password@db:5432/cardshield
       REDIS_URL: redis://redis:6379/0
+      GEOIP_DB_PATH: /app/data/GeoLite2-City.mmdb
     depends_on:
       db:
         condition: service_healthy
@@ -45,7 +46,8 @@ services:
         condition: service_healthy
     networks:
       - cardshield-net
-
+    volumes:
+      - ./data/GeoLite2-City.mmdb:/app/data/GeoLite2-City.mmdb
 networks:
   cardshield-net:
     driver: bridge
