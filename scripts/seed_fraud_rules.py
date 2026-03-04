@@ -37,8 +37,10 @@ async def seed():
 
         session.add(FraudRule(name="high_value_check", feature_name="amount", threshold=10000.0, weight=50.0))
         session.add(FraudRule(name="velocity_check_1m", feature_name="transaction_count", threshold=5.0, weight=30.0))
+        # Travel-based rule: if implied speed exceeds 1000 km/h, flag as suspicious.
+        session.add(FraudRule(name="impossible_travel", feature_name="travel_speed_kmh", threshold=1000.0, weight=40.0))
         await session.commit()
-        print("Seeded fraud_rules: high_value_check, velocity_check_1m.")
+        print("Seeded fraud_rules: high_value_check, velocity_check_1m, impossible_travel.")
 
 
 if __name__ == "__main__":
