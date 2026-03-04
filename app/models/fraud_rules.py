@@ -1,11 +1,12 @@
 from typing import Optional
 
-from sqlalchemy import Column, Boolean, Float, text
+from sqlalchemy import Boolean, Column, Float, Index, text
 from sqlmodel import Field, SQLModel
 
 
 class FraudRule(SQLModel, table=True):
     __tablename__ = "fraud_rules"
+    __table_args__ = (Index("idx_fraud_rules_is_active", "is_active"),)
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(max_length=100, unique=True, nullable=False)
