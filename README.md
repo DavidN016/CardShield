@@ -1,40 +1,74 @@
 # CardShield
 
-Fraud scoring REST API with Redis sliding-window velocity and dynamic rules from Postgres.
+CardShield is an async fraud-scoring API built with FastAPI, Redis, and PostgreSQL.
+It evaluates each transaction in real time using a microservice-style pipeline:
+record event in Redis, build features (amount, velocity, geo), load active rules, and return a risk score.
 
-## Testing Redis and the scoring engine
+## What this project does
 
-### 1. Start dependencies and API
+- Exposes `POST /score` to score transactions.
+- Uses Redis sorted sets for low-latency sliding-window velocity features.
+- Loads active fraud rules from PostgreSQL via SQLModel.
+- Returns a numeric score, triggered rules, and velocity metadata.
+- Includes a latency test with a sub-60 ms median target for `/score`.
+
+## Stack
+
+- FastAPI + Uvicorn (async API server)
+- SQLModel + async SQLAlchemy + `asyncpg` (PostgreSQL access)
+- `redis.asyncio` (Redis feature store for velocity and geo state)
+- Docker Compose for local infrastructure (`db`, `redis`, `api`)
+
+## Quick start
+
+### 1) Start services
+
+Run everything in Docker:
 
 ```bash
-# From project root
-docker compose up -d db redis
-# Optional: run API in Docker too, or run locally:
-# uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+docker compose up -d --build
 ```
 
-If you run the API **on your machine**, ensure `.env` uses `localhost` for DB and Redis (so scripts and tests can connect):
+Or run only dependencies in Docker and API locally:
 
-- `DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/cardshield`
-- `REDIS_URL=redis://localhost:6379/0`
+```bash
+docker compose up -d db redis
+```
 
-Create tables and seed rules once:
+### 2) Configure environment
+
+If running API locally, set `.env` to localhost endpoints:
+
+```bash
+DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/cardshield
+REDIS_URL=redis://localhost:6379/0
+GEOIP_DB_PATH=data/GeoLite2-City.mmdb
+```
+
+If running API in Docker Compose, service hostnames are used automatically (`db`, `redis`).
+
+### 3) Initialize database
 
 ```bash
 python -m scripts.create_tables
 python -m scripts.seed_fraud_rules
 ```
 
-### 2. Manual checks with curl
+Optional one-off utility if needed:
 
-**Health (Redis connectivity):**
+```bash
+python -m scripts.add_index_fraud_rules_is_active
+```
+
+## Use the API
+
+Health check:
 
 ```bash
 curl -s http://localhost:8000/health
-# Expect: {"status":"ok"}
 ```
 
-**Score a single transaction (Redis + scoring engine):**
+Score a transaction:
 
 ```bash
 curl -s -X POST http://localhost:8000/score \
@@ -42,16 +76,28 @@ curl -s -X POST http://localhost:8000/score \
   -d '{"user_id":"u1","amount":"15000.00"}'
 ```
 
-You should get JSON with `score` (e.g. 50 from high_value_check), `rules_triggered`, and `velocity_1m`. Send the same request a few more times for `user_id":"u1"`; `velocity_1m` should increase (sliding window in Redis).
+Example response fields:
 
-### 3. Automated tests (pytest)
+- `score`: total risk score from triggered rules
+- `rules_triggered`: list of rule names that fired
+- `velocity_1m`: transaction count in the last 60 seconds
 
-With `db` and `redis` (and optionally the API) running and `.env` pointing at `localhost`:
+## Run tests
+
+Install test dependencies:
 
 ```bash
-# From project root, with venv activated
-pip install pytest httpx
+pip install -r requirements.txt pytest httpx
+```
+
+Run all tests:
+
+```bash
 pytest tests/ -v
 ```
 
-The test suite calls `/health` and `/score` and verifies that multiple score requests for the same user increase `velocity_1m`.
+Run latency test only:
+
+```bash
+pytest tests/test_latency.py -v -s
+```
